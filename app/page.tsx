@@ -1,392 +1,379 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
-type PetalStyle = {
-  left: string;
-  animationDuration: string;
-  animationDelay: string;
-  width: string;
-  height: string;
-  opacity: number;
+type SavedReflection = {
+  id: string;
+  text: string;
+  createdAt: string;
 };
 
-type ParticleStyle = {
+type BurstPetal = {
+  id: string;
   left: string;
   top: string;
+  delay: string;
+  duration: string;
+  driftX: string;
+  driftY: string;
+  rotate: string;
   size: string;
-  animationDuration: string;
-  animationDelay: string;
-  opacity: number;
 };
+
+const SUGGESTIONS = [
+  "What is the meaning of life?",
+  "How do I start meditating?",
+  "How can I find peace in uncertainty?",
+];
+
+function TypingFadeText({ text }: { text: string }) {
+  const words = useMemo(() => text.split(" "), [text]);
+
+  return (
+    <p className="leading-9 text-[1.1rem] font-medium text-stone-100 md:text-[1.35rem]">
+      {words.map((word, i) => (
+        <span
+          key={`${word}-${i}`}
+          className="animate-wordFade mr-2 inline-block opacity-0"
+          style={{ animationDelay: `${i * 0.09}s` }}
+        >
+          {word}
+        </span>
+      ))}
+    </p>
+  );
+}
 
 export default function Home() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [displayedAnswer, setDisplayedAnswer] = useState("");
   const [loading, setLoading] = useState(false);
+  const [breathing, setBreathing] = useState(false);
+  const [savedReflections, setSavedReflections] = useState<SavedReflection[]>(
+    []
+  );
+  const [showSaved, setShowSaved] = useState(false);
+  const [burstPetals, setBurstPetals] = useState<BurstPetal[]>([]);
   const [answerPulse, setAnswerPulse] = useState(false);
-
-  const suggestions = [
-    "What is the meaning of life?",
-    "How do I start meditating?",
-    "How can I find peace in uncertainty?",
-  ];
-
-  const petals = useMemo<PetalStyle[]>(
-    () =>
-      Array.from({ length: 18 }, (_, i) => ({
-        left: `${4 + i * 5 + (i % 3) * 2}%`,
-        animationDuration: `${10 + (i % 5) * 2}s`,
-        animationDelay: `${(i % 6) * 1.1}s`,
-        width: `${10 + (i % 4) * 4}px`,
-        height: `${14 + (i % 4) * 5}px`,
-        opacity: 0.28 + (i % 4) * 0.08,
-      })),
-    []
-  );
-
-  const particles = useMemo<ParticleStyle[]>(
-    () =>
-      Array.from({ length: 14 }, (_, i) => ({
-        left: `${8 + i * 6}%`,
-        top: `${18 + (i % 5) * 12}%`,
-        size: `${3 + (i % 4) * 2}px`,
-        animationDuration: `${12 + (i % 4) * 5}s`,
-        animationDelay: `${i * 0.7}s`,
-        opacity: 0.12 + (i % 3) * 0.08,
-      })),
-    []
-  );
+  const [backgroundRipple, setBackgroundRipple] = useState(false);
 
   useEffect(() => {
-    if (!answer) return;
-    setAnswerPulse(true);
-    const timeout = setTimeout(() => setAnswerPulse(false), 1800);
-    return () => clearTimeout(timeout);
-  }, [answer]);
+    const stored = localStorage.getItem("talking-buddha-reflections");
+    if (stored) {
+      try {
+        setSavedReflections(JSON.parse(stored));
+      } catch {
+        setSavedReflections([]);
+      }
+    }
+  }, []);
 
-  async function handleAsk() {
-    if (!question.trim()) return;
+  useEffect(() => {
+    localStorage.setItem(
+      "talking-buddha-reflections",
+      JSON.stringify(savedReflections)
+    );
+  }, [savedReflections]);
+
+  function triggerPetalBurst() {
+    const petals: BurstPetal[] = Array.from({ length: 18 }).map((_, i) => ({
+      id: `${Date.now()}-${i}`,
+      left: `${22 + Math.random() * 32}%`,
+      top: `${8 + Math.random() * 10}%`,
+      delay: `${Math.random() * 0.18}s`,
+      duration: `${2.2 + Math.random() * 1.2}s`,
+      driftX: `${-180 + Math.random() * 360}px`,
+      driftY: `${180 + Math.random() * 220}px`,
+      rotate: `${-260 + Math.random() * 520}deg`,
+      size: `${12 + Math.random() * 8}px`,
+    }));
+
+    setBurstPetals(petals);
+    setAnswerPulse(true);
+    setBackgroundRipple(true);
+
+    setTimeout(() => {
+      setBurstPetals([]);
+    }, 3000);
+
+    setTimeout(() => {
+      setAnswerPulse(false);
+    }, 1600);
+
+    setTimeout(() => {
+      setBackgroundRipple(false);
+    }, 1800);
+  }
+
+  async function askQuestion(customQuestion?: string) {
+    const finalQuestion = customQuestion ?? question;
+
+    if (!finalQuestion.trim()) return;
 
     setLoading(true);
+    setBreathing(true);
     setAnswer("");
+    setDisplayedAnswer("");
+    setAnswerPulse(false);
+    setBackgroundRipple(false);
 
     try {
-      const res = await fetch("/api/ask", {
+      const res = await fetch("https://talkingbuddha.co.uk/api/ask", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question: finalQuestion }),
       });
 
       const data = await res.json();
+      const nextAnswer =
+        data.answer || "A quiet answer did not arrive this time.";
 
-      if (!res.ok) {
-        setAnswer(data.error || "Something went wrong.");
-      } else {
-        setAnswer(data.answer || "No answer returned.");
-      }
+      setAnswer(nextAnswer);
+
+      // Breath before response appears
+      setTimeout(() => {
+        setBreathing(false);
+        setDisplayedAnswer(nextAnswer);
+        triggerPetalBurst();
+      }, 1700);
     } catch {
-      setAnswer("Something went wrong.");
+      const fallback =
+        "Stillness remains, but the words did not arrive.\n\nPlease try again.";
+      setAnswer(fallback);
+
+      setTimeout(() => {
+        setBreathing(false);
+        setDisplayedAnswer(fallback);
+        setAnswerPulse(true);
+        setTimeout(() => setAnswerPulse(false), 1400);
+      }, 1700);
     } finally {
       setLoading(false);
     }
   }
 
-  const words = answer.split(" ");
+  function saveReflection() {
+    if (!displayedAnswer.trim()) return;
+
+    const alreadySaved = savedReflections.some(
+      (item) => item.text === displayedAnswer
+    );
+    if (alreadySaved) return;
+
+    const newReflection: SavedReflection = {
+      id: crypto.randomUUID(),
+      text: displayedAnswer,
+      createdAt: new Date().toISOString(),
+    };
+
+    setSavedReflections((prev) => [newReflection, ...prev]);
+    setShowSaved(true);
+  }
+
+  function deleteReflection(id: string) {
+    setSavedReflections((prev) => prev.filter((item) => item.id !== id));
+  }
 
   return (
-    <main className="relative min-h-screen overflow-hidden text-white">
-      {/* Background image */}
-      <div
-        className="absolute inset-0 bg-cover bg-center scale-[1.02]"
-        style={{ backgroundImage: "url('/buddha-bg.png')" }}
-      />
+    <main className="relative min-h-screen overflow-hidden bg-black text-white">
+      <div className="absolute inset-0 z-0">
+        <img
+          src="/buddha-bg.png"
+          alt="Buddha beneath a cherry blossom tree"
+          className="h-full w-full object-cover opacity-70"
+        />
+        <div className="absolute inset-0 bg-black/45" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/35 to-black/75" />
 
-      {/* Base overlays */}
-      <div className="absolute inset-0 bg-black/55" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_15%,rgba(0,0,0,0.5)_100%)]" />
-
-      {/* Breathing glow behind center */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="breathing-glow h-[34rem] w-[34rem] rounded-full" />
-      </div>
-
-      {/* Mist layers */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-64 mist mist-one" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-6 h-56 mist mist-two" />
-
-      {/* Floating light particles */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {particles.map((particle, index) => (
-          <span
-            key={index}
-            className="particle absolute block rounded-full"
-            style={{
-              left: particle.left,
-              top: particle.top,
-              width: particle.size,
-              height: particle.size,
-              opacity: particle.opacity,
-              animationDuration: particle.animationDuration,
-              animationDelay: particle.animationDelay,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Falling petals */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {petals.map((petal, index) => (
-          <span
-            key={index}
-            className="petal absolute -top-16 block"
-            style={{
-              left: petal.left,
-              width: petal.width,
-              height: petal.height,
-              opacity: petal.opacity,
-              animationDuration: petal.animationDuration,
-              animationDelay: petal.animationDelay,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-6 py-10">
-        <div className="w-full max-w-2xl space-y-8 text-center">
-          <div className="space-y-4">
-            <h1 className="text-5xl font-semibold tracking-tight text-white/95 drop-shadow-[0_0_25px_rgba(255,255,255,0.15)]">
-              The Talking Buddha
-            </h1>
-            <p className="text-lg text-white/75">
-              Ask a question. Receive a calm reflection.
-            </p>
-          </div>
-
-          <div
-            className={`min-h-[180px] rounded-3xl border border-white/10 bg-black/25 p-6 text-left leading-7 backdrop-blur-md transition-all duration-1000 ${
-              answerPulse ? "answer-pulse" : ""
-            }`}
-          >
-            {loading ? (
-              <p className="text-white/65">Reflecting...</p>
-            ) : answer ? (
-              <p className="text-white/92">
-                {words.map((word, i) => (
-                  <span
-                    key={i}
-                    className="fade-word"
-                    style={{ animationDelay: `${i * 0.09}s` }}
-                  >
-                    {word}&nbsp;
-                  </span>
-                ))}
-              </p>
-            ) : (
-              <p className="text-white/45">
-                Your reflection will appear here.
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-2">
-            {suggestions.map((s) => (
-              <button
-                key={s}
-                onClick={() => setQuestion(s)}
-                className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-white/80 backdrop-blur-sm transition hover:bg-white/10"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-3">
-            <textarea
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="What is troubling your mind?"
-              className="min-h-[120px] w-full rounded-3xl border border-white/10 bg-black/25 p-4 text-white outline-none placeholder:text-white/40 backdrop-blur-md"
-            />
-            <button
-              onClick={handleAsk}
-              disabled={loading}
-              className="w-full rounded-3xl bg-white py-3 font-medium text-black transition disabled:opacity-50"
-            >
-              {loading ? "Reflecting..." : "Ask"}
-            </button>
-          </div>
-
-          <p className="text-xs text-white/45">
-            Inspired by Buddhist teachings. Not professional advice.
-          </p>
+        <div
+          className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${
+            backgroundRipple ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <div className="background-ripple absolute inset-0" />
         </div>
       </div>
 
-      <style jsx>{`
-        .breathing-glow {
-          background: radial-gradient(
-            circle,
-            rgba(255, 225, 210, 0.12) 0%,
-            rgba(255, 210, 235, 0.08) 25%,
-            rgba(255, 180, 220, 0.04) 45%,
-            rgba(255, 255, 255, 0) 70%
-          );
-          filter: blur(12px);
-          animation: breathe 7s ease-in-out infinite;
-        }
+      <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center">
+        <div className="breathing-glow h-[34rem] w-[34rem] rounded-full" />
+      </div>
 
-        .mist {
-          background: radial-gradient(
-              ellipse at 20% 50%,
-              rgba(255, 255, 255, 0.08),
-              transparent 55%
-            ),
-            radial-gradient(
-              ellipse at 60% 60%,
-              rgba(255, 220, 235, 0.06),
-              transparent 60%
-            ),
-            radial-gradient(
-              ellipse at 85% 40%,
-              rgba(255, 255, 255, 0.05),
-              transparent 55%
-            );
-          filter: blur(22px);
-        }
+      <div className="mist mist-1 z-[2]" />
+      <div className="mist mist-2 z-[2]" />
 
-        .mist-one {
-          animation: driftMistOne 22s ease-in-out infinite alternate;
-        }
+      {/* Background petals: above background, behind UI */}
+      <div className="petals z-[3]">
+        {Array.from({ length: 18 }).map((_, i) => (
+          <span
+            key={i}
+            className="petal"
+            style={
+              {
+                left: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 10}s`,
+                animationDuration: `${12 + Math.random() * 10}s`,
+                "--drift": `${(Math.random() * 90 - 45).toFixed(0)}px`,
+                "--rotate": `${(Math.random() * 140 - 70).toFixed(0)}deg`,
+              } as CSSProperties
+            }
+          />
+        ))}
+      </div>
 
-        .mist-two {
-          animation: driftMistTwo 30s ease-in-out infinite alternate;
-        }
+      {/* Response petals: above background, behind text */}
+      <div className="pointer-events-none absolute inset-0 z-[4] overflow-hidden">
+        {burstPetals.map((petal) => (
+          <span
+            key={petal.id}
+            className="burst-petal absolute"
+            style={
+              {
+                left: petal.left,
+                top: petal.top,
+                width: petal.size,
+                height: `calc(${petal.size} * 0.72)`,
+                animationDelay: petal.delay,
+                animationDuration: petal.duration,
+                "--burst-x": petal.driftX,
+                "--burst-y": petal.driftY,
+                "--burst-rotate": petal.rotate,
+              } as CSSProperties
+            }
+          />
+        ))}
+      </div>
 
-        .particle {
-          background: rgba(255, 245, 240, 0.9);
-          box-shadow: 0 0 8px rgba(255, 255, 255, 0.22);
-          animation-name: floatParticle;
-          animation-timing-function: ease-in-out;
-          animation-iteration-count: infinite;
-        }
+      <section className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-10 md:px-8">
+        <div className="mx-auto w-full max-w-4xl text-center">
+          <h1 className="text-5xl font-bold tracking-tight md:text-7xl">
+            The Talking Buddha
+          </h1>
+          <p className="mt-4 text-lg text-stone-200 md:text-2xl">
+            Ask a question. Receive a calm reflection.
+          </p>
+        </div>
 
-        .petal {
-          background: linear-gradient(
-            180deg,
-            rgba(255, 214, 224, 0.95),
-            rgba(244, 163, 181, 0.9)
-          );
-          border-radius: 70% 30% 70% 30%;
-          filter: blur(0.2px);
-          box-shadow: 0 0 10px rgba(255, 192, 203, 0.15);
-          animation-name: fall;
-          animation-timing-function: linear;
-          animation-iteration-count: infinite;
-        }
+        <div
+          className={`relative mx-auto mt-10 w-full max-w-4xl rounded-3xl border p-6 backdrop-blur-md md:p-8 transition-all duration-700 ${
+            answerPulse
+              ? "answer-pulse border-white/20 bg-black/35"
+              : "border-white/10 bg-black/30 shadow-2xl"
+          }`}
+        >
+          <div className="relative z-20">
+            {breathing ? (
+              <div className="flex min-h-[120px] flex-col items-center justify-center text-center">
+                <div className="response-breath-glow mb-4 h-16 w-16 rounded-full" />
+                <p className="text-sm tracking-[0.2em] uppercase text-stone-300/80">
+                  Breathe
+                </p>
+              </div>
+            ) : displayedAnswer ? (
+              <>
+                <TypingFadeText text={displayedAnswer} />
 
-        .petal::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          background: linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0.35),
-            rgba(255, 255, 255, 0)
-          );
-          transform: scale(0.7);
-        }
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <button
+                    onClick={saveReflection}
+                    className="rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+                  >
+                    Save Reflection
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-lg leading-8 text-stone-200 md:text-xl">
+                Be still for a moment. Ask what is on your heart.
+              </p>
+            )}
+          </div>
+        </div>
 
-        .fade-word {
-          opacity: 0;
-          display: inline-block;
-          animation: fadeWord 0.6s ease forwards;
-        }
+        <div className="mx-auto mt-8 flex w-full max-w-4xl flex-wrap items-center justify-center gap-3">
+          {SUGGESTIONS.map((item) => (
+            <button
+              key={item}
+              onClick={() => {
+                setQuestion(item);
+                askQuestion(item);
+              }}
+              className="rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm text-stone-100 backdrop-blur-sm transition hover:bg-white/20"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
 
-        .answer-pulse {
-          box-shadow:
-            0 0 0 1px rgba(255, 255, 255, 0.06),
-            0 0 24px rgba(255, 235, 220, 0.08),
-            0 0 60px rgba(255, 210, 230, 0.06);
-        }
+        <div className="mx-auto mt-8 w-full max-w-4xl">
+          <textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="What is on your mind?"
+            className="min-h-[120px] w-full rounded-3xl border border-white/10 bg-black/35 p-5 text-lg text-white outline-none placeholder:text-stone-300 backdrop-blur-md"
+          />
 
-        @keyframes breathe {
-          0%,
-          100% {
-            transform: scale(0.96);
-            opacity: 0.6;
-          }
-          50% {
-            transform: scale(1.05);
-            opacity: 1;
-          }
-        }
+          <button
+            onClick={() => askQuestion()}
+            disabled={loading || breathing}
+            className="mt-4 w-full rounded-full bg-white py-4 text-lg font-medium text-black transition hover:opacity-90 disabled:opacity-50"
+          >
+            {loading || breathing ? "Listening..." : "Ask"}
+          </button>
 
-        @keyframes driftMistOne {
-          0% {
-            transform: translateX(-4%) translateY(0);
-            opacity: 0.45;
-          }
-          100% {
-            transform: translateX(4%) translateY(-8px);
-            opacity: 0.65;
-          }
-        }
+          <p className="mt-4 text-center text-xs text-stone-300/80">
+            Inspired by Buddhist teachings. Not medical, legal, mental health,
+            or crisis advice.
+          </p>
+        </div>
 
-        @keyframes driftMistTwo {
-          0% {
-            transform: translateX(3%) translateY(0);
-            opacity: 0.32;
-          }
-          100% {
-            transform: translateX(-5%) translateY(-10px);
-            opacity: 0.5;
-          }
-        }
+        <div className="mx-auto mt-10 w-full max-w-4xl">
+          <button
+            onClick={() => setShowSaved((prev) => !prev)}
+            className="text-sm text-stone-300/70 transition hover:text-stone-200"
+          >
+            {showSaved
+              ? `Hide saved reflections (${savedReflections.length})`
+              : `Saved reflections (${savedReflections.length})`}
+          </button>
 
-        @keyframes floatParticle {
-          0%,
-          100% {
-            transform: translateY(0px) translateX(0px);
-          }
-          50% {
-            transform: translateY(-18px) translateX(8px);
-          }
-        }
+          {showSaved && savedReflections.length > 0 && (
+            <div className="mt-4 space-y-3">
+              {savedReflections.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-white/8 bg-black/15 p-4 backdrop-blur-sm"
+                >
+                  <p className="whitespace-pre-wrap text-sm leading-7 text-stone-200/90">
+                    {item.text}
+                  </p>
 
-        @keyframes fall {
-          0% {
-            transform: translate3d(0, -10vh, 0) rotate(0deg);
-          }
-          25% {
-            transform: translate3d(20px, 25vh, 0) rotate(90deg);
-          }
-          50% {
-            transform: translate3d(-15px, 50vh, 0) rotate(180deg);
-          }
-          75% {
-            transform: translate3d(25px, 75vh, 0) rotate(270deg);
-          }
-          100% {
-            transform: translate3d(-10px, 110vh, 0) rotate(360deg);
-          }
-        }
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className="text-[11px] text-stone-400/80">
+                      Saved {new Date(item.createdAt).toLocaleDateString()}
+                    </span>
 
-        @keyframes fadeWord {
-          from {
-            opacity: 0;
-            transform: translateY(4px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
+                    <button
+                      onClick={() => deleteReflection(item.id)}
+                      className="text-xs text-stone-400/80 transition hover:text-red-200"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showSaved && savedReflections.length === 0 && (
+            <div className="mt-4 rounded-2xl border border-white/8 bg-black/10 p-4 text-sm text-stone-400/80 backdrop-blur-sm">
+              No saved reflections yet.
+            </div>
+          )}
+        </div>
+      </section>
     </main>
   );
 }

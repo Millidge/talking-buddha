@@ -1,26 +1,235 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Breathing glow */
+.breathing-glow {
+  background: radial-gradient(
+    circle,
+    rgba(255, 220, 180, 0.18) 0%,
+    rgba(255, 200, 150, 0.08) 35%,
+    rgba(255, 180, 140, 0.03) 55%,
+    transparent 75%
+  );
+  filter: blur(30px);
+  animation: breathe 6s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(0.95);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+/* Small breath before response */
+.response-breath-glow {
+  background: radial-gradient(
+    circle,
+    rgba(255, 235, 215, 0.22) 0%,
+    rgba(255, 215, 195, 0.12) 35%,
+    rgba(255, 205, 215, 0.05) 60%,
+    transparent 80%
+  );
+  filter: blur(6px);
+  animation: responseBreath 1.7s ease-in-out infinite;
+}
+
+@keyframes responseBreath {
+  0%,
+  100% {
+    transform: scale(0.88);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.95;
+  }
+}
+
+/* Background response ripple */
+.background-ripple {
+  background:
+    radial-gradient(
+      circle at 35% 14%,
+      rgba(255, 235, 215, 0.18) 0%,
+      rgba(255, 220, 200, 0.08) 18%,
+      rgba(255, 210, 220, 0.03) 34%,
+      transparent 56%
+    ),
+    linear-gradient(
+      120deg,
+      transparent 0%,
+      rgba(255, 245, 235, 0.05) 35%,
+      rgba(255, 225, 235, 0.08) 50%,
+      rgba(255, 245, 235, 0.05) 65%,
+      transparent 100%
+    );
+  filter: blur(6px);
+  animation: rippleSweep 1.8s ease-out forwards;
+}
+
+@keyframes rippleSweep {
+  0% {
+    opacity: 0;
+    transform: scale(0.98) translateX(-3%);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.03) translateX(2%);
+  }
+}
+
+/* Mist */
+.mist {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 35vh;
+  pointer-events: none;
+  filter: blur(24px);
+  opacity: 0.18;
+}
+
+.mist-1 {
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.18),
+    rgba(255, 255, 255, 0.03),
+    transparent
+  );
+  animation: driftMist1 18s ease-in-out infinite alternate;
+}
+
+.mist-2 {
+  background: linear-gradient(
+    to top,
+    rgba(255, 220, 220, 0.14),
+    rgba(255, 220, 220, 0.03),
+    transparent
+  );
+  animation: driftMist2 24s ease-in-out infinite alternate;
+}
+
+@keyframes driftMist1 {
+  from {
+    transform: translateX(-2%) translateY(0);
+  }
+  to {
+    transform: translateX(2%) translateY(-8px);
+  }
+}
+
+@keyframes driftMist2 {
+  from {
+    transform: translateX(3%) translateY(0);
+  }
+  to {
+    transform: translateX(-3%) translateY(-10px);
+  }
+}
+
+/* Petals above background, behind text */
+.petals {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+}
+
+.petal {
+  position: absolute;
+  top: -40px;
+  width: 14px;
+  height: 10px;
+  background: radial-gradient(circle at 30% 30%, #ffdce6, #f1a7bb 70%);
+  border-radius: 70% 30% 70% 30%;
+  opacity: 0.58;
+  filter: blur(0.2px);
+  animation-name: fallPetal;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes fallPetal {
+  0% {
+    transform: translate3d(0, -20px, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(var(--drift), 110vh, 0) rotate(var(--rotate));
+    opacity: 0;
+  }
+}
+
+/* Response petal flurry */
+.burst-petal {
+  background: radial-gradient(circle at 30% 30%, #ffe4ec, #f4afc1 70%);
+  border-radius: 70% 30% 70% 30%;
+  opacity: 0;
+  filter: blur(0.15px);
+  box-shadow: 0 0 8px rgba(255, 210, 225, 0.16);
+  animation: burstPetal ease-out forwards;
+}
+
+@keyframes burstPetal {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.7);
+  }
+  10% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--burst-x), var(--burst-y), 0)
+      rotate(var(--burst-rotate)) scale(1.05);
+  }
+}
+
+/* Answer box glow */
+.answer-pulse {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 30px rgba(255, 225, 200, 0.12),
+    0 0 80px rgba(255, 210, 230, 0.1),
+    inset 0 0 20px rgba(255, 255, 255, 0.02);
+}
+
+/* Word-by-word answer fade */
+.animate-wordFade {
+  animation: wordFade 0.45s ease forwards;
+}
+
+@keyframes wordFade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
 }
